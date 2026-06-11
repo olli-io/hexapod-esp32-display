@@ -1,6 +1,10 @@
-#include <Arduino.h>
-
+#include <stdint.h>
 #include <string.h>
+
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #include "Config.h"
 #include "Display.h"
@@ -12,6 +16,13 @@
 #include "UartTransport.h"
 
 using namespace proto;
+
+static const char* TAG = "main";
+
+// Monotonic ms since boot, same contract as Arduino's millis().
+static uint32_t millis() {
+    return static_cast<uint32_t>(esp_timer_get_time() / 1000);
+}
 
 static Display              g_display;
 static UartTransport        g_uart;
@@ -110,28 +121,35 @@ static void handleFrame(Cmd cmd, const uint8_t* payload, uint16_t len) {
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
-void setup() {
-    Serial.begin(115200);   // USB-CDC debug log
-    delay(50);
-    log_i("boot: hexapod-display v%u.%u.%u",
-          cfg::FW_VER_MAJOR, cfg::FW_VER_MINOR, cfg::FW_VER_PATCH);
+extern "C" void app_main() {
+    // Debug log goes out over the C3's built-in USB Serial/JTAG console
+    // (CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG) — no explicit init needed.
+    ESP_LOGI(TAG, "boot: hexapod-display v%u.%u.%u",
+             cfg::FW_VER_MAJOR, cfg::FW_VER_MINOR, cfg::FW_VER_PATCH);
 
-    if (!g_display.begin()) log_e("display init failed");
-    if (!g_uart.begin(cfg::UART_BAUD, cfg::PIN_UART_RX, cfg::PIN_UART_TX)) {
-        log_e("uart init failed");
+    if (!g_display.begin()) ESP_LOGE(TAG, "display init failed");
+    if (!g_uart.begin(cfg::UART_BAUD, cfg::PIN_UART_RX, cfg::PIN_UART_TX,
+                      cfg::RX_RING_SIZE, cfg::TX_RING_SIZE)) {
+        ESP_LOGE(TAG, "uart init failed");
     }
 
     g_codec.onFrame(handleFrame);
     g_codec.onError([](NackReason r) { sendNack(r); });
-    g_uart.startRxTask([](uint8_t b) { g_codec.feed(b, millis()); });
 
     g_controller.setExpression(Expression::NEUTRAL);
     g_controller.setGaze(GazeDirection::CENTER);
-}
 
-void loop() {
-    const uint32_t now = millis();
-    g_codec.tick(now);
-    g_controller.tick(now);
-    delay(1);  // yield to RX task and keep the task WDT happy
+    // Everything runs on this one task: UART pump, codec, dispatch, render.
+    // The UART driver ISR keeps filling its RX ring while a render blocks
+    // us (~10 ms worst case vs ~22 ms of ring at full line rate), so no
+    // dedicated RX task — and therefore no shared state across tasks.
+    const UartTransport::ByteSink feedCodec =
+        [](uint8_t b) { g_codec.feed(b, millis()); };
+    for (;;) {
+        g_uart.pump(feedCodec);
+        const uint32_t now = millis();
+        g_codec.tick(now);
+        g_controller.tick(now);
+        vTaskDelay(pdMS_TO_TICKS(1));  // 1 tick at 1 kHz
+    }
 }

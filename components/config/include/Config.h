@@ -1,27 +1,21 @@
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
-
-// XIAO ESP32-C3 silkscreen aliases (D0..D10) are defined by the Arduino core
-// as macros mapping to the underlying GPIO numbers. Keep this header
-// portable by gating Arduino-specific bits.
-#ifdef ARDUINO
-  #include <Arduino.h>
-#endif
 
 namespace cfg {
 
 // ---------------------------------------------------------------------------
-// Firmware version (FW_VERSION_* come from -D flags in platformio.ini)
+// Firmware version
 // ---------------------------------------------------------------------------
-constexpr uint8_t FW_VER_MAJOR = FW_VERSION_MAJOR;
-constexpr uint8_t FW_VER_MINOR = FW_VERSION_MINOR;
-constexpr uint8_t FW_VER_PATCH = FW_VERSION_PATCH;
+constexpr uint8_t FW_VER_MAJOR = 0;
+constexpr uint8_t FW_VER_MINOR = 1;
+constexpr uint8_t FW_VER_PATCH = 0;
 
 // ---------------------------------------------------------------------------
-// Pin map — XIAO ESP32-C3
+// Pin map — XIAO ESP32-C3 (silkscreen D-label → raw GPIO)
 // ---------------------------------------------------------------------------
-// SPI to SH1122 OLED (4-wire HW SPI, U8g2 _4W_HW_SPI constructor)
+// SPI to SH1122 OLED (4-wire HW SPI)
 //   D8  GPIO8   SCK   (strapping; HIGH at boot. SPI mode 0 idles low after init.)
 //   D10 GPIO10  MOSI
 //   D3  GPIO5   CS
@@ -34,16 +28,14 @@ constexpr uint8_t FW_VER_PATCH = FW_VERSION_PATCH;
 //
 // Reserved / left free: D0 (GPIO2 strapping), D4/D5 (I2C SDA/SCL),
 // D9 (GPIO9 BOOT button).
-#ifdef ARDUINO
-constexpr int PIN_OLED_SCK  = D8;
-constexpr int PIN_OLED_MOSI = D10;
-constexpr int PIN_OLED_CS   = D3;
-constexpr int PIN_OLED_DC   = D2;
-constexpr int PIN_OLED_RST  = D1;
+constexpr int PIN_OLED_SCK  = 8;
+constexpr int PIN_OLED_MOSI = 10;
+constexpr int PIN_OLED_CS   = 5;
+constexpr int PIN_OLED_DC   = 4;
+constexpr int PIN_OLED_RST  = 3;
 
-constexpr int PIN_UART_TX   = D6;
-constexpr int PIN_UART_RX   = D7;
-#endif
+constexpr int PIN_UART_TX   = 21;
+constexpr int PIN_UART_RX   = 20;
 
 // ---------------------------------------------------------------------------
 // Display
@@ -54,7 +46,10 @@ constexpr uint32_t OLED_SPI_HZ = 8'000'000;
 // UART link to Pi
 // ---------------------------------------------------------------------------
 constexpr uint32_t UART_BAUD     = 921600;
-constexpr size_t   RX_RING_SIZE  = 512;
+// Driver ring buffers. The main task pumps RX between renders, so the ring
+// must cover a full render stall: ~10 ms of SPI flush at ~92 B/ms incoming
+// is ~1 KB; 2 KB leaves 2x headroom.
+constexpr size_t   RX_RING_SIZE  = 2048;
 constexpr size_t   TX_RING_SIZE  = 256;
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,6 @@
 #include "ExpressionController.h"
 
 #include "Config.h"
-#include "Display.h"
 #include "IRenderer.h"
 
 namespace {

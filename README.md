@@ -49,20 +49,32 @@ dtoverlay=disable-bt
 
 ### Pin notes
 
-- `D6/D7` are silkscreen "UART0" pins on the XIAO. With
-  `ARDUINO_USB_CDC_ON_BOOT=1` (set in `platformio.ini`), `Serial` is the
-  USB-CDC log channel and `Serial1` is the hardware UART on these pins.
+- `D6/D7` are silkscreen "UART0" pins on the XIAO. Debug logs go out over
+  the C3's built-in USB Serial/JTAG port (`CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG`),
+  so UART1 on these pins is free for the Pi link.
 - `D8` (GPIO8) is a strapping pin and must be HIGH at boot. SPI mode-0 SCK
-  idles low after `SPI.begin()` — boot-time state is fine.
+  idles low after bus init — boot-time state is fine.
 - `D9` (GPIO9, BOOT button) is left free.
 
 ## Build, flash, test
 
+Built with plain ESP-IDF (v5.5.x). One-time setup:
+
 ```sh
-pio run                        # build firmware
-pio run -t upload              # flash via USB-C
-pio device monitor             # USB-CDC log (115200 baud)
-pio test -e native             # host-side codec + CRC tests
+git clone --branch v5.5.4 --depth 1 --recursive --shallow-submodules \
+    https://github.com/espressif/esp-idf.git ~/esp/esp-idf
+~/esp/esp-idf/install.sh esp32c3
+git submodule update --init      # vendored u8g2 in components/u8g2/u8g2
+```
+
+Then, in each shell:
+
+```sh
+. ~/esp/esp-idf/export.sh
+idf.py build                   # build firmware
+idf.py flash                   # flash via USB-C
+idf.py monitor                 # USB Serial/JTAG log (Ctrl-] to quit)
+make -C test                   # host-side codec + CRC tests
 ```
 
 ## Protocol
@@ -137,19 +149,22 @@ with serial.Serial('/dev/serial0', 921600, timeout=0.2) as s:
 
 ## Project layout
 
+ESP-IDF component layout; each module is an IDF component.
+
 ```
-include/        Config.h (pin map, baud, version)
-src/            main.cpp (wiring + dispatch)
-lib/Display/            U8g2 wrapper, SPI init, RST pulse
-lib/UartTransport/      Serial1 owner + FreeRTOS RX task
-lib/ProtocolCodec/      Frame format, CRC16, parser SM (Arduino-free)
-lib/ExpressionController/  state + 60 Hz dirty-bit render gate
-lib/Renderer/           IRenderer interface + v0 StubRenderer
-test/                   host-side Unity tests (native env)
+main/                   main.cpp (wiring + dispatch, app_main + tick loop)
+components/config/      Config.h (pin map, baud, version)
+components/display/     u8g2 wrapper, SPI init, RST pulse
+components/uart_transport/  UART1 driver owner (main-loop pump, no RX task)
+components/protocol/    Frame format, CRC16, parser SM (platform-free)
+components/expression/  state + 60 Hz dirty-bit render gate + IRenderer
+components/renderer/    v0 StubRenderer
+components/u8g2/        u8g2 C core (git submodule) + ESP-IDF SPI/GPIO HAL
+test/                   host-side Unity tests (make -C test)
 ```
 
-`ProtocolCodec` and `Crc16` have no Arduino dependency and compile under
-PlatformIO's `native` env for millisecond host-side tests.
+`protocol` has no ESP-IDF dependency and compiles natively (vendored Unity,
+plain Makefile) for millisecond host-side tests.
 
 ## Roadmap
 
