@@ -5,7 +5,7 @@
 #include "Config.h"
 #include "Display.h"
 
-void StubRenderer::render(Display& display, const RenderState& state) {
+void StubRenderer::render(Display& display, const RenderState& state, uint32_t) {
     display.clear();
     u8g2_t* g = &display.u8g2();
     u8g2_SetFont(g, u8g2_font_6x10_tr);

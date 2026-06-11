@@ -17,7 +17,11 @@ public:
     Expression    expression() const { return _expr; }
     GazeDirection gaze()       const { return _gaze; }
 
-    // Called from the loop. Re-renders if dirty; rate-limited to ~60 Hz.
+    // Forward a one-shot blink request to the renderer.
+    void triggerBlink();
+
+    // Called from the loop. Renders every frame (animations run inside the
+    // renderer); rate-limited to ~60 Hz.
     void tick(uint32_t nowMs);
 
 private:
@@ -25,6 +29,5 @@ private:
     IRenderer&    _renderer;
     Expression    _expr = Expression::NEUTRAL;
     GazeDirection _gaze = GazeDirection::CENTER;
-    bool          _dirty = true;          // force first render
     uint32_t      _lastRenderMs = 0;
 };

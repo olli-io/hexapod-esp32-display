@@ -7,5 +7,5 @@
 // before any real eye art exists.
 class StubRenderer : public IRenderer {
 public:
-    void render(Display& display, const RenderState& state) override;
+    void render(Display& display, const RenderState& state, uint32_t nowMs) override;
 };

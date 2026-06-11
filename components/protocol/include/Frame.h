@@ -21,6 +21,7 @@ enum class Cmd : uint8_t {
     PING            = 0x01,
     SET_EXPRESSION  = 0x10,
     SET_GAZE        = 0x11,
+    TRIGGER_BLINK   = 0x12,
     QUERY_STATUS    = 0x20,
 
     // ESP32 -> Pi

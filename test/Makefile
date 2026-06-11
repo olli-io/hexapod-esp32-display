@@ -10,7 +10,7 @@ INCLUDES := -I../components/protocol/include -Iunity
 
 BUILD := build
 
-SUITES := $(BUILD)/test_codec $(BUILD)/test_crc
+SUITES := $(BUILD)/test_codec $(BUILD)/test_crc $(BUILD)/test_eyes
 
 .PHONY: all build clean
 all: build
@@ -29,6 +29,12 @@ $(BUILD)/test_codec: test_codec/test_codec.cpp ../components/protocol/ProtocolCo
 $(BUILD)/test_crc: test_crc/test_crc.cpp $(BUILD)/unity.o
 	@mkdir -p $(BUILD)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $^ -o $@
+
+$(BUILD)/test_eyes: test_eyes/test_eyes.cpp ../components/renderer/EyeRaster.cpp $(BUILD)/unity.o
+	@mkdir -p $(BUILD)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) \
+	    -I../components/renderer/include -I../components/expression/include \
+	    $^ -o $@
 
 clean:
 	rm -rf $(BUILD)

@@ -3,13 +3,14 @@
 #include <stdint.h>
 
 enum class Expression : uint8_t {
-    NEUTRAL   = 0,
-    HAPPY     = 1,
-    SLEEPY    = 2,
-    SURPRISED = 3,
-    ANGRY     = 4,
-    SAD       = 5,
-    BLINK     = 6,
+    NEUTRAL = 0,  // 0 0
+    HAPPY   = 1,  // ^ ^
+    SLEEPY  = 2,  // - -
+    DEAD    = 3,  // x x
+    GREEDY  = 4,  // $ $
+    WOOZY   = 5,  // ~ ~
+    ANGRY   = 6,  // > <
+    LOVE    = 7,  // ♥ ♥
     _COUNT
 };
 

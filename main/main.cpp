@@ -10,9 +10,9 @@
 #include "Display.h"
 #include "Expression.h"
 #include "ExpressionController.h"
+#include "EyeRenderer.h"
 #include "Frame.h"
 #include "ProtocolCodec.h"
-#include "StubRenderer.h"
 #include "UartTransport.h"
 
 using namespace proto;
@@ -27,7 +27,7 @@ static uint32_t millis() {
 static Display              g_display;
 static UartTransport        g_uart;
 static ProtocolCodec        g_codec;
-static StubRenderer         g_renderer;
+static EyeRenderer          g_renderer;
 static ExpressionController g_controller(g_display, g_renderer);
 
 // ---------------------------------------------------------------------------
@@ -107,6 +107,12 @@ static void handleFrame(Cmd cmd, const uint8_t* payload, uint16_t len) {
             sendAck(cmd);
             return;
         }
+
+        case Cmd::TRIGGER_BLINK:
+            if (len != 0) { sendNack(NackReason::BAD_PAYLOAD); return; }
+            g_controller.triggerBlink();
+            sendAck(cmd);
+            return;
 
         case Cmd::QUERY_STATUS:
             sendStatus();

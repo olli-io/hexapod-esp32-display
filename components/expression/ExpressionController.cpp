@@ -5,7 +5,7 @@
 
 namespace {
 constexpr const char* kExprNames[static_cast<size_t>(Expression::_COUNT)] = {
-    "NEUTRAL", "HAPPY", "SLEEPY", "SURPRISED", "ANGRY", "SAD", "BLINK",
+    "NEUTRAL", "HAPPY", "SLEEPY", "DEAD", "GREEDY", "WOOZY", "ANGRY", "LOVE",
 };
 constexpr const char* kGazeNames[static_cast<size_t>(GazeDirection::_COUNT)] = {
     "CENTER", "UP", "DOWN", "LEFT", "RIGHT",
@@ -25,29 +25,25 @@ ExpressionController::ExpressionController(Display& display, IRenderer& renderer
 
 bool ExpressionController::setExpression(Expression e) {
     if (!isValid(e)) return false;
-    if (_expr != e) {
-        _expr = e;
-        _dirty = true;
-    }
+    _expr = e;
     return true;
 }
 
 bool ExpressionController::setGaze(GazeDirection g) {
     if (!isValid(g)) return false;
-    if (_gaze != g) {
-        _gaze = g;
-        _dirty = true;
-    }
+    _gaze = g;
     return true;
 }
 
+void ExpressionController::triggerBlink() {
+    _renderer.requestBlink();
+}
+
 void ExpressionController::tick(uint32_t nowMs) {
-    if (!_dirty) return;
     if (nowMs - _lastRenderMs < cfg::MIN_RENDER_INTERVAL_MS) return;
 
     RenderState s{_expr, _gaze};
-    _renderer.render(_display, s);
+    _renderer.render(_display, s, nowMs);
 
-    _dirty = false;
     _lastRenderMs = nowMs;
 }

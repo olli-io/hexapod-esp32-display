@@ -100,6 +100,7 @@ resets the parser cleanly.
 | 0x01 | Pi → ESP32    | PING           | any (echoed back in PONG)            |
 | 0x10 | Pi → ESP32    | SET_EXPRESSION | `u8` expression enum                 |
 | 0x11 | Pi → ESP32    | SET_GAZE       | `u8` gaze enum                       |
+| 0x12 | Pi → ESP32    | TRIGGER_BLINK  | empty (one-shot blink)               |
 | 0x20 | Pi → ESP32    | QUERY_STATUS   | empty                                |
 | 0x80 | ESP32 → Pi    | ACK            | `u8` echoed command code             |
 | 0x81 | ESP32 → Pi    | NACK           | `u8` NackReason                      |
@@ -107,7 +108,8 @@ resets the parser cleanly.
 | 0x83 | ESP32 → Pi    | PONG           | echo of PING payload                 |
 | 0x8F | ESP32 → Pi    | LOG            | UTF-8 string                         |
 
-`Expression`: `NEUTRAL=0, HAPPY=1, SLEEPY=2, SURPRISED=3, ANGRY=4, SAD=5, BLINK=6`
+`Expression`: `NEUTRAL=0 (0 0), HAPPY=1 (^ ^), SLEEPY=2 (- -), DEAD=3 (x x),
+GREEDY=4 ($ $), WOOZY=5 (~ ~), ANGRY=6 (> <), LOVE=7 (♥ ♥)`
 `GazeDirection`: `CENTER=0, UP=1, DOWN=2, LEFT=3, RIGHT=4, UP_LEFT=5, UP_RIGHT=6, DOWN_LEFT=7, DOWN_RIGHT=8`
 `NackReason`: `BAD_CRC=0, BAD_LEN=1, UNKNOWN_CMD=2, BAD_PAYLOAD=3, BUSY=4`
 
@@ -157,8 +159,9 @@ components/config/      Config.h (pin map, baud, version)
 components/display/     u8g2 wrapper, SPI init, RST pulse
 components/uart_transport/  UART1 driver owner (main-loop pump, no RX task)
 components/protocol/    Frame format, CRC16, parser SM (platform-free)
-components/expression/  state + 60 Hz dirty-bit render gate + IRenderer
-components/renderer/    v0 StubRenderer
+components/expression/  target state + ~60 Hz render tick + IRenderer
+components/renderer/    EyeRenderer (animated eyes) + EyeRaster (1-bit
+                        rasterizer, host-testable) + StubRenderer (debug)
 components/u8g2/        u8g2 C core (git submodule) + ESP-IDF SPI/GPIO HAL
 test/                   host-side Unity tests (make -C test)
 ```
@@ -166,11 +169,25 @@ test/                   host-side Unity tests (make -C test)
 `protocol` has no ESP-IDF dependency and compiles natively (vendored Unity,
 plain Makefile) for millisecond host-side tests.
 
+## Eye animation
+
+`EyeRenderer` runs autonomously on top of the target state set over UART:
+
+- Expression changes transition through a 260 ms blink; the artwork swaps
+  at the midpoint (eyes shut), so switches never pop.
+- Gaze eases to its target over 220 ms (easeOutCubic), up to ±20/±12 px;
+  the offset is applied at the pixel level, so it composes with blinks.
+- Idle blinks fire every 2.2–5.2 s (hardware RNG) without any command.
+- `TRIGGER_BLINK` (0x12) forces a one-shot blink.
+
+The drawing code (`EyeRaster`) is a faithful port of the browser prototype:
+shapes are rasterized with line/bezier/arc/fill primitives and a 3 px brush
+into the 256×64 1-bit buffer. It is platform-free and covered by host tests
+(`test/test_eyes`, which also has an ASCII dump mode: `./build/test_eyes
+--dump <expr 0-7> [lid] [gx] [gy]`).
+
 ## Roadmap
 
-- Real eye renderer (`EyeRenderer : IRenderer`) with parametric pupils.
-- Expression-to-expression interpolation animation; saccade-style gaze
-  transitions.
 - Periodic `STATUS` push so the Pi can monitor uptime / codec health.
 - I²C IMU (D4/D5) for head-tilt-driven gaze drift.
 - Second display variant (back-of-head LED matrix?) — at that point
