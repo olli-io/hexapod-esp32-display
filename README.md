@@ -186,6 +186,12 @@ into the 256×64 1-bit buffer. It is platform-free and covered by host tests
 (`test/test_eyes`, which also has an ASCII dump mode: `./build/test_eyes
 --dump <expr 0-7> [lid] [gx] [gy]`).
 
+The full animation can be previewed without hardware: `make -C test sim`
+runs an interactive terminal simulator (≥96 columns; uses Braille cells on
+short terminals, quadrant blocks otherwise) that drives the same `EyeAnim`
++ `EyeRaster` code the firmware uses — keys 0-7 switch expressions,
+arrows/wasd move the gaze, space blinks, q quits.
+
 ## Roadmap
 
 - Periodic `STATUS` push so the Pi can monitor uptime / codec health.
