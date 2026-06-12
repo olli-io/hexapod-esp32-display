@@ -30,6 +30,10 @@ static ProtocolCodec        g_codec;
 static EyeRenderer          g_renderer;
 static ExpressionController g_controller(g_display, g_renderer);
 
+// Heartbeat: stamped on every valid frame. Starts at 0, so a Pi that never
+// shows up reads as link-lost LINK_TIMEOUT_MS after boot.
+static uint32_t g_lastFrameMs = 0;
+
 // ---------------------------------------------------------------------------
 // TX helpers
 // ---------------------------------------------------------------------------
@@ -81,6 +85,7 @@ static void sendStatus() {
 // RX dispatch
 // ---------------------------------------------------------------------------
 static void handleFrame(Cmd cmd, const uint8_t* payload, uint16_t len) {
+    g_lastFrameMs = millis();
     switch (cmd) {
         case Cmd::PING:
             sendFrame(Cmd::PONG, payload, len);  // echo payload
@@ -155,6 +160,13 @@ extern "C" void app_main() {
         g_uart.pump(feedCodec);
         const uint32_t now = millis();
         g_codec.tick(now);
+
+        const bool linkUp = (now - g_lastFrameMs) < cfg::LINK_TIMEOUT_MS;
+        if (linkUp != g_controller.linkUp()) {
+            ESP_LOGW(TAG, "uart link %s", linkUp ? "up" : "lost");
+            g_controller.setLinkUp(linkUp);
+        }
+
         g_controller.tick(now);
         vTaskDelay(pdMS_TO_TICKS(1));  // 1 tick at 1 kHz
     }

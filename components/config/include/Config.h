@@ -52,6 +52,11 @@ constexpr uint32_t UART_BAUD     = 921600;
 constexpr size_t   RX_RING_SIZE  = 2048;
 constexpr size_t   TX_RING_SIZE  = 256;
 
+// Heartbeat: any valid frame counts as link activity, so the Pi must send
+// something (PING suffices) at least this often. After this much silence
+// the eyes fall back to DEAD until a frame arrives again.
+constexpr uint32_t LINK_TIMEOUT_MS = 3000;
+
 // ---------------------------------------------------------------------------
 // Render loop
 // ---------------------------------------------------------------------------

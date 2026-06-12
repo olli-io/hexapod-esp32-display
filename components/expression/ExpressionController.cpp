@@ -42,7 +42,9 @@ void ExpressionController::triggerBlink() {
 void ExpressionController::tick(uint32_t nowMs) {
     if (nowMs - _lastRenderMs < cfg::MIN_RENDER_INTERVAL_MS) return;
 
-    RenderState s{_expr, _gaze};
+    const RenderState s = _linkUp
+        ? RenderState{_expr, _gaze}
+        : RenderState{Expression::DEAD, GazeDirection::CENTER};
     _renderer.render(_display, s, nowMs);
 
     _lastRenderMs = nowMs;

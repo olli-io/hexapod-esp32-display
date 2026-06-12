@@ -20,6 +20,12 @@ public:
     // Forward a one-shot blink request to the renderer.
     void triggerBlink();
 
+    // Link supervision: while the link is down the eyes render DEAD with
+    // centered gaze. The commanded expression/gaze are kept and resume
+    // when the link comes back.
+    void setLinkUp(bool up) { _linkUp = up; }
+    bool linkUp() const { return _linkUp; }
+
     // Called from the loop. Renders every frame (animations run inside the
     // renderer); rate-limited to ~60 Hz.
     void tick(uint32_t nowMs);
@@ -29,5 +35,6 @@ private:
     IRenderer&    _renderer;
     Expression    _expr = Expression::NEUTRAL;
     GazeDirection _gaze = GazeDirection::CENTER;
+    bool          _linkUp = true;
     uint32_t      _lastRenderMs = 0;
 };

@@ -93,6 +93,11 @@ Framed binary, little-endian length, big-endian CRC. CRC-16/CCITT-FALSE
 `MAX_PAYLOAD = 1024`. Inter-byte timeout = 50 ms; a Pi reboot mid-frame
 resets the parser cleanly.
 
+Any valid frame counts as link activity. If none arrives for 3 s
+(`LINK_TIMEOUT_MS`), the eyes fall back to `DEAD` until the link returns;
+the last commanded expression/gaze then resume. Send `PING` (or any
+other command) at least every ~1 s to keep the link alive.
+
 ### Commands
 
 | Code | Direction     | Name           | Payload                              |
