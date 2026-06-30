@@ -96,6 +96,71 @@ test/                       host-side Unity tests (make -C test)
 `protocol` has no ESP-IDF dependency and compiles natively (vendored Unity,
 plain Makefile) for millisecond host-side tests.
 
+## Raspberry Pi direct face (ROS2)
+
+`ros2/face/` is an `ament_cmake` package (`hexapod_face`) that drives the SH1122
+**directly from the Pi** — no ESP32 in the loop. It reuses the platform-free
+animation core (`EyeAnim` + `EyeRaster`) verbatim from this repo and builds a
+single self-contained panel driver around `u8g2`'s built-in `sh1122_256x64`:
+pixel bytes over `/dev/spidev`, and DC/RST/CS over the Linux GPIO character
+device (kernel uABI ioctls — **no libgpiod or other GPIO library**). This is the
+path used on the robot; the ESP-IDF firmware above stays buildable but is no
+longer the face.
+
+```
+ros2/face/src/Sh1122Panel.{h,cpp}  panel driver: u8g2 + spidev + kernel GPIO uABI
+ros2/face/src/FaceNames.h          case-insensitive name<->enum (reuses firmware names)
+ros2/face/src/face_node.cpp        rclcpp node: render timer + expression/gaze/blink topics
+ros2/face/config/face.yaml         spi_device, gpio_chip, dc/rst/cs lines, render_hz, headless
+```
+
+Design notes:
+- Built on `EyeAnim`/`EyeRaster` directly (no `Display`/`IRenderer`/`Expression`
+  `Controller`), so there is no ESP-only link-supervision baggage on the Pi.
+- Per-instance transport via u8g2's `user_ptr` — no file-scope globals.
+- **Dirty-flush**: a frame is pushed over SPI only when it actually changed, so a
+  static face costs no bus traffic between blinks/gaze moves.
+- `headless:=true` runs the full pipeline without touching SPI/GPIO (CI / dev box);
+  the same path is covered by `test/test_face` in `make -C test`.
+
+### Wiring — Raspberry Pi (SPI0) → SH1122 OLED
+
+Format: `Pi pin (BCM GPIO) -> SH1122 pin`. DC/RST/CS GPIOs are configurable in
+`config/face.yaml` (defaults shown).
+
+- `3V3 -> VCC`
+- `GND -> GND`
+- `SCLK (GPIO11, pin 23) -> SCK / D0`
+- `MOSI (GPIO10, pin 19) -> MOSI / D1`
+- `GPIO8 (CE0, pin 24) -> CS`     (`cs_line: 8`; driven manually, SPI_NO_CS)
+- `GPIO24 (pin 18) -> DC`         (`dc_line: 24`)
+- `GPIO25 (pin 22) -> RST`        (`rst_line: 25`)
+
+Enable SPI in `/boot/firmware/config.txt`: `dtparam=spi=on`, then reboot.
+
+### Build & run (on the Pi)
+
+```sh
+# needs a ROS2 distro (rclcpp, std_msgs); no extra system libraries
+ln -s "$PWD/ros2/face" ~/ros2_ws/src/         # bring the package into a colcon ws
+cd ~/ros2_ws && colcon build --packages-select hexapod_face
+source install/setup.bash
+ros2 launch hexapod_face face.launch.py       # NEUTRAL eyes + idle blinks
+```
+
+The control node sets the target expression/gaze in-process; for manual /
+bring-up control the same states are string topics:
+
+```sh
+ros2 topic pub --once /face_node/expression std_msgs/String "{data: HAPPY}"
+ros2 topic pub --once /face_node/gaze       std_msgs/String "{data: UP_LEFT}"
+ros2 topic pub --once /face_node/blink      std_msgs/Empty  "{}"
+```
+
+Names match the [`commands.md`](docs/commands.md) enums (case-insensitive). The
+user running the node needs access to `/dev/spidev*` and `/dev/gpiochip*` (groups
+`spi`/`gpio`, or a udev rule).
+
 ## Eye animation
 
 `EyeRenderer` runs autonomously on top of the target state set over UART:

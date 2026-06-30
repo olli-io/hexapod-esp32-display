@@ -10,7 +10,16 @@ INCLUDES := -I../components/protocol/include -Iunity
 
 BUILD := build
 
-SUITES := $(BUILD)/test_codec $(BUILD)/test_crc $(BUILD)/test_eyes
+# u8g2 C core, needed by the face panel test. Compiled once into objects.
+U8G2_DIR  := ../components/u8g2/u8g2/csrc
+U8G2_SRCS := $(wildcard $(U8G2_DIR)/*.c)
+U8G2_OBJS := $(patsubst $(U8G2_DIR)/%.c,$(BUILD)/u8g2/%.o,$(U8G2_SRCS))
+
+FACE_INC := -I../ros2/face/src -I$(U8G2_DIR) \
+            -I../components/renderer/include -I../components/expression/include \
+            -I../components/config/include
+
+SUITES := $(BUILD)/test_codec $(BUILD)/test_crc $(BUILD)/test_eyes $(BUILD)/test_face
 
 .PHONY: all build clean sim
 all: build
@@ -35,6 +44,19 @@ $(BUILD)/test_eyes: test_eyes/test_eyes.cpp ../components/renderer/EyeRaster.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) \
 	    -I../components/renderer/include -I../components/expression/include \
 	    $^ -o $@
+
+$(BUILD)/u8g2/%.o: $(U8G2_DIR)/%.c
+	@mkdir -p $(BUILD)/u8g2
+	$(CC) -I$(U8G2_DIR) -O1 -c $< -o $@
+
+# Pi face: name parsing + dirty-flush + reused EyeAnim/EyeRaster, headless.
+$(BUILD)/test_face: test_face/test_face.cpp \
+        ../ros2/face/src/Sh1122Panel.cpp \
+        ../components/renderer/EyeAnim.cpp ../components/renderer/EyeRaster.cpp \
+        ../components/expression/ExpressionController.cpp \
+        $(U8G2_OBJS) $(BUILD)/unity.o
+	@mkdir -p $(BUILD)
+	$(CXX) $(CXXFLAGS) -Iunity $(FACE_INC) $^ -o $@
 
 # Interactive terminal eye simulator (not a test suite): make sim
 sim: $(BUILD)/eyesim

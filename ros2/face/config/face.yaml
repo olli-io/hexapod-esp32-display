@@ -1,0 +1,21 @@
+face_node:
+  ros__parameters:
+    # SH1122 SPI bus (kernel spidev).
+    spi_device: "/dev/spidev0.0"
+    spi_speed_hz: 8000000
+
+    # Control pins on the GPIO character device, by chip + line offset (BCM
+    # numbering on a Raspberry Pi). CS is driven manually; set cs_line: -1 to
+    # disable it (panel CS tied low, or hardware CE used instead).
+    gpio_chip: "/dev/gpiochip0"
+    dc_line: 24
+    rst_line: 25
+    cs_line: 8
+
+    # Render loop rate (Hz). Animation timing is wall-clock regardless. Frames
+    # are only pushed over SPI when they actually change, so a static face
+    # costs no bus traffic between blinks/gaze moves.
+    render_hz: 60
+
+    # Run the full pipeline without touching SPI/GPIO (dev box / CI / bring-up).
+    headless: false
