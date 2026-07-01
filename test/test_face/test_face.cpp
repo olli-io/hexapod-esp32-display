@@ -77,6 +77,38 @@ void test_eyeanim_renders_into_panel(void) {
     TEST_ASSERT_EQUAL_UINT64(1, panel.flushCount());
 }
 
+// --- raster-skip premise: EyeAnim is static when idle, moves during a blink --
+// The node skips the raster when consecutive AnimFrames are identical; that only
+// helps if idle frames really are bit-identical. Guard that assumption here.
+
+static bool frameEq(const eyes::AnimFrame& a, const eyes::AnimFrame& b) {
+    return a.expr == b.expr && a.lid == b.lid && a.gx == b.gx && a.gy == b.gy;
+}
+
+void test_idle_frames_are_static(void) {
+    auto rng = +[]() -> uint32_t { return 0u; };  // idle blink at +2200 ms
+    eyes::EyeAnim anim(rng);
+    RenderState target{Expression::NEUTRAL, GazeDirection::CENTER};
+    anim.update(target, 0);  // arm the idle timer
+
+    const eyes::AnimFrame a = anim.update(target, 500);
+    const eyes::AnimFrame b = anim.update(target, 1500);  // still < 2200: no blink
+    TEST_ASSERT_TRUE(frameEq(a, b));    // identical -> raster is skipped
+    TEST_ASSERT_EQUAL_FLOAT(1.0f, b.lid);
+}
+
+void test_blink_changes_frames(void) {
+    auto rng = +[]() -> uint32_t { return 0u; };
+    eyes::EyeAnim anim(rng);
+    RenderState target{Expression::NEUTRAL, GazeDirection::CENTER};
+    anim.update(target, 0);
+    anim.requestBlink();
+
+    const eyes::AnimFrame a = anim.update(target, 10);   // blink just started
+    const eyes::AnimFrame b = anim.update(target, 80);   // mid-blink: lid closing
+    TEST_ASSERT_FALSE(frameEq(a, b));   // differs -> raster runs
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_parse_expression_case_insensitive);
@@ -84,5 +116,7 @@ int main(int, char**) {
     RUN_TEST(test_parse_rejects_unknown);
     RUN_TEST(test_present_flushes_only_on_change);
     RUN_TEST(test_eyeanim_renders_into_panel);
+    RUN_TEST(test_idle_frames_are_static);
+    RUN_TEST(test_blink_changes_frames);
     return UNITY_END();
 }

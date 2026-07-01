@@ -118,8 +118,10 @@ Design notes:
 - Built on `EyeAnim`/`EyeRaster` directly (no `Display`/`IRenderer`/`Expression`
   `Controller`), so there is no ESP-only link-supervision baggage on the Pi.
 - Per-instance transport via u8g2's `user_ptr` — no file-scope globals.
-- **Dirty-flush**: a frame is pushed over SPI only when it actually changed, so a
-  static face costs no bus traffic between blinks/gaze moves.
+- **Idle is nearly free**, in two layers: the render tick skips the float-heavy
+  raster when the new `AnimFrame` matches the last (EyeAnim emits a constant frame
+  between blinks / once gaze settles), and **dirty-flush** pushes over SPI only
+  when the pixels actually changed. A static face costs ~no CPU and no bus traffic.
 - `headless:=true` runs the full pipeline without touching SPI/GPIO (CI / dev box);
   the same path is covered by `test/test_face` in `make -C test`.
 

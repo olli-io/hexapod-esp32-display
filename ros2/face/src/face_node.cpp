@@ -38,6 +38,13 @@ void pixelSink(void* ctx, int x, int y) {
                    static_cast<u8g2_uint_t>(x), static_cast<u8g2_uint_t>(y));
 }
 
+// Exact equality is intended: drawEye is a pure function of these fields, so
+// bit-identical frames rasterize to identical pixels. EyeAnim emits a constant
+// frame while idle (lid == 1.0f, settled integer gaze), so this reliably fires.
+bool sameFrame(const eyes::AnimFrame& a, const eyes::AnimFrame& b) {
+    return a.expr == b.expr && a.lid == b.lid && a.gx == b.gx && a.gy == b.gy;
+}
+
 rcl_interfaces::msg::ParameterDescriptor readOnly(const std::string& desc) {
     rcl_interfaces::msg::ParameterDescriptor d;
     d.description = desc;
@@ -112,11 +119,19 @@ private:
 
     void renderTick() {
         const eyes::AnimFrame f = _anim.update(_target, nowMs());
+        // Skip the float-heavy raster entirely when the animation frame is
+        // unchanged — between blinks and once gaze has settled the face is
+        // static, so there is nothing to redraw. (present()'s dirty-flush still
+        // guards SPI for sub-pixel frame changes that rasterize identically.)
+        if (_haveFrame && sameFrame(f, _lastFrame)) return;
+        _lastFrame = f;
+        _haveFrame = true;
+
         _panel.clearBuffer();
         u8g2_t* g = _panel.u8g2();
         eyes::drawEye(f.expr, false, eyes::kEyeLX, f.lid, f.gx, f.gy, pixelSink, g);
         eyes::drawEye(f.expr, true,  eyes::kEyeRX, f.lid, f.gx, f.gy, pixelSink, g);
-        _panel.present();  // flushes over SPI only if the frame changed
+        _panel.present();  // flushes over SPI only if the pixels changed
     }
 
     void onExpression(const std::string& name) {
@@ -144,6 +159,9 @@ private:
     face::Sh1122Panel _panel;
     eyes::EyeAnim     _anim;
     RenderState       _target{Expression::NEUTRAL, GazeDirection::CENTER};
+
+    eyes::AnimFrame _lastFrame{};      // last frame rastered (raster-skip gate)
+    bool            _haveFrame = false;
 
     std::chrono::steady_clock::time_point _t0{};
 
