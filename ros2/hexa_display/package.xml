@@ -1,13 +1,15 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>hexapod_face</name>
+  <name>hexa_display</name>
   <version>0.1.0</version>
   <description>
     Hexapod "face" renderer as a ROS2 node. Drives a 256x64 SH1122 OLED
     directly from a Raspberry Pi (spidev + the kernel GPIO character device),
-    reusing the platform-free eye animation core (EyeAnim/EyeRaster) shared
-    with the ESP32 firmware in this repo. No external GPIO library.
+    reusing the platform-free eye animation core (EyeAnim/EyeRaster) that is
+    also used by the ESP32 firmware. Self-contained: that core and the u8g2 C
+    driver are vendored under vendor/ (see vendor/README.md), so the package
+    builds without a firmware checkout. No external GPIO library.
   </description>
   <maintainer email="olli.moisio@protonmail.com">Olli Moisio</maintainer>
   <license>MIT</license>

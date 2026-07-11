@@ -7,12 +7,12 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     config = os.path.join(
-        get_package_share_directory("hexapod_face"), "config", "face.yaml"
+        get_package_share_directory("hexa_display"), "config", "face.yaml"
     )
     return LaunchDescription(
         [
             Node(
-                package="hexapod_face",
+                package="hexa_display",
                 executable="face_node",
                 name="face_node",
                 output="screen",
